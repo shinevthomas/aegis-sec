@@ -1,0 +1,12 @@
+# ==============================================================
+# REMEDIATED: All dependencies updated to patched, secure versions
+# ==============================================================
+
+# Upgraded to Flask >= 3.0.0 (Patched against DoS and JSON decoding issues)
+Flask==3.0.0
+
+# Upgraded to Requests >= 2.31.0 (Patched against auth header leakage)
+requests==2.31.0
+
+# Upgraded to Urllib3 >= 2.0.7 (Patched against CRLF injection)
+urllib3==2.0.7

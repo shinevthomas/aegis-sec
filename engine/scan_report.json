@@ -1,0 +1,15 @@
+{
+  "target_directory": "/home/shine/.gemini/antigravity/scratch/aegis-sec/target_app",
+  "summary": {
+    "score": 100,
+    "grade": "A (Excellent)",
+    "counts": {
+      "CRITICAL": 0,
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "total_findings": 0
+  },
+  "findings": []
+}
