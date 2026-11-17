@@ -1,83 +1,126 @@
-# 🛡️ AegisSec: Unified Application Security Posture Management (ASPM)
+# 🛡️ AegisSec: Enterprise Application Security Posture Management (ASPM)
 
+[![CI / Security Gate](https://github.com/shinevthomas/aegis-sec/actions/workflows/aegis-security-gate.yml/badge.svg)](https://github.com/shinevthomas/aegis-sec/actions)
+[![SARIF 2.1.0](https://img.shields.io/badge/SARIF-2.1.0%20Compliant-blueviolet.svg)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Tests](https://img.shields.io/badge/Tests-Passing%20(5%2F5)-success.svg)](https://github.com/shinevthomas/aegis-sec/tree/main/tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Security Posture](https://img.shields.io/badge/Posture%20Score-100%2F100-emerald.svg)]()
 
-> A developer-friendly Application Security Posture Management (ASPM) platform that orchestrates secret scanning, static code analysis (SAST), and dependency vulnerability auditing (SCA) into a single unified control room.
+> An enterprise-grade Application Security Posture Management (ASPM) platform that automates multi-vector vulnerability scanning, enforces CI/CD quality gates, and exports industry-standard **OASIS SARIF 2.1.0** reports for GitHub Advanced Security.
 
 ---
 
-## 📌 Problem & Motivation
-
-Enterprise development teams face **alert fatigue**—juggling separate reports from distinct tools for leaked keys, code bugs, and vulnerable packages. 
-
-**AegisSec** solves this by:
-1. **Aggregating multi-source security telemetry** into a normalized schema.
-2. **Scoring repository security posture** (0–100 with letter grading).
-3. **Providing actionable inline code diffs** so developers can remediate findings in minutes.
-
----
-
-## 🏗️ Architecture & Engines
+## 🏗️ Architectural Overview
 
 ```
-[ Target Codebase ]
-         │
-         ▼
-[ AegisSec Scanner Engine ]
-  ├── 1. Secrets Scanner (Gitleaks-style pattern & entropy matching)
-  ├── 2. Code Vulnerability / SAST (Semgrep-style AST/query analysis)
-  └── 3. Dependency Inspector / SCA (Trivy-style advisory matching)
-         │
-         ▼
-[ Unified Posture Normalizer ] ──> [ scan_report.json ]
-         │
-         ▼
-[ AegisSec Web Control Room ] (http://localhost:8080)
+                          ┌───────────────────────────┐
+                          │   Target Code Repository  │
+                          └─────────────┬─────────────┘
+                                        │
+                                        ▼
+                  ╔═══════════════════════════════════════════╗
+                  ║         AegisSec Scanning Engine          ║
+                  ║  ├─ Secrets Detection (Gitleaks-style)   ║
+                  ║  ├─ Code Vulnerabilities (Semgrep-style)  ║
+                  ║  └─ Dependency SCA (Trivy-style CVEs)     ║
+                  ╚═════════════════════╤═════════════════════╝
+                                        │
+                  ┌─────────────────────┼─────────────────────┐
+                  ▼                     ▼                     ▼
+        [ CLI Table Report ]    [ OASIS SARIF 2.1.0 ]    [ Posture Score ]
+         (Human Readable)       (GitHub CodeQL Spec)     (0–100 & Grade)
+                                        │
+                                        ▼
+        ┌─────────────────────────────────────────────────────────────┐
+        │  1. CI/CD Quality Gate (--threshold 80: Pass / Block PR)    │
+        │  2. Web Posture Center (http://localhost:8080)             │
+        │  3. GitHub Security Tab (Code Scanning Alerts)              │
+        └─────────────────────────────────────────────────────────────┘
 ```
-
-### 1. Secrets Scanner (Gitleaks Engine)
-- Scans source trees using regex signatures for AWS IAM access keys, Stripe live tokens, GitHub tokens, and high-entropy credentials.
-- Masks sensitive values in outputs to prevent log leakage.
-
-### 2. Static Code Analysis (Semgrep SAST Engine)
-- Analyzes syntax structures for dangerous patterns, specifically flagging SQL Injection (CWE-89) in database access routines and suggesting parameterized alternatives.
-
-### 3. Software Composition Analysis (Trivy SCA Engine)
-- Parses `requirements.txt` / dependencies and cross-references known vulnerability advisory databases (CVEs).
 
 ---
 
-## 🚀 Quickstart
+## ✨ Enterprise Capabilities
 
-### 1. Clone the repository
+1. **Multi-Vector Threat Detection:**
+   * **Secrets Engine:** Signature matching for high-entropy tokens (AWS IAM, Stripe, Private Keys) with automated credential masking in logs.
+   * **SAST Engine:** Syntax pattern analysis detecting SQL Injection (CWE-89) and insecure query interpolation.
+   * **SCA Engine:** Semver dependency checker cross-referencing public CVE advisories (e.g., CVE-2018-18074, CVE-2019-11324).
+2. **Industry-Standard Output (SARIF 2.1.0):**
+   * Natively ingested by **GitHub Code Scanning**, Azure DevOps, and SonarQube.
+3. **CI/CD Quality Gatekeeper:**
+   * Built-in `--threshold <min_score>` flag that triggers exit code `1` to fail CI builds on unacceptable risk.
+4. **Automated GitHub Actions:**
+   * Fully automated workflow runs on every `push` and `pull_request`, uploading SARIF alerts directly to GitHub Security.
+5. **Containerized Deployment:**
+   * Production-ready `Dockerfile` and `docker-compose.yml` with non-root security context.
+
+---
+
+## 🚀 Quickstart & Usage
+
+### 1. Run via CLI
+
 ```bash
-git clone https://github.com/<your-username>/aegis-sec.git
-cd aegis-sec
-```
-
-### 2. Run the Scanner (CLI)
-```bash
+# Standard Table Output
 python3 engine/scanner.py target_app
+
+# Enforce a CI/CD Quality Gate (fails if score < 80)
+python3 engine/scanner.py target_app --threshold 80
+
+# Export OASIS SARIF 2.1.0 Report
+python3 engine/scanner.py target_app --format sarif --output results.sarif
 ```
 
-### 3. Launch the Web Dashboard
+### 2. Launch the Web Control Room
+
 ```bash
 python3 dashboard/server.py
 ```
 Open **`http://localhost:8080`** in your browser.
 
+### 3. Run with Docker Compose
+
+```bash
+docker compose up
+```
+
 ---
 
-## 📊 Live Control Room Features
+## 🧪 Automated Testing
 
-- **Executive KPI Cards:** Instant visibility into Posture Score, Total Findings, and Critical Risk counts.
-- **Filterable Triage:** Filter by `Secrets`, `Code Flaws`, or `Dependencies`.
-- **Developer Remediation Diff:** Inline copyable code patches for immediate fixes.
-- **On-Demand Rescan:** One-click re-evaluation via REST API.
+AegisSec includes a unit and security regression test suite validating detection accuracy, credential masking, and SARIF formatting:
+
+```bash
+python3 -m unittest discover tests
+```
+
+---
+
+## 📂 Repository Structure
+
+```text
+aegis-sec/
+├── .github/
+│   └── workflows/
+│       └── aegis-security-gate.yml  # Automated CI/CD pipeline & quality gate
+├── dashboard/
+│   ├── index.html                   # Dark-mode cybersecurity control room UI
+│   └── server.py                    # REST API & static web server
+├── engine/
+│   ├── scanner.py                   # Core ASPM multi-vector scanning engine
+│   └── scan_report.json             # Normalized security telemetry
+├── target_app/
+│   ├── app.py                       # Secured web service (remediated)
+│   └── requirements.txt             # Patched package manifest
+├── tests/
+│   └── test_scanner.py              # Automated regression test suite
+├── Dockerfile                       # Multi-stage Alpine container
+├── docker-compose.yml               # Service orchestration
+└── README.md                        # Documentation & specifications
+```
 
 ---
 
 ## 📄 License
-This project is licensed under the MIT License.
+Distributed under the MIT License. See `LICENSE` for more information.

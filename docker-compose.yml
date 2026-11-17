@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  # Web Dashboard Control Center
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aegis-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./target_app:/app/target_app:ro
+      - ./engine/scan_report.json:/app/engine/scan_report.json
+
+  # On-demand CLI Scanner Job
+  scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aegis-scanner
+    command: ["python3", "engine/scanner.py", "target_app", "--format", "table", "--threshold", "80"]
+    volumes:
+      - ./target_app:/app/target_app:ro
