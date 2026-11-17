@@ -367,6 +367,9 @@
           <div class="status-dot"></div>
           Scanner Live
         </div>
+        <button class="btn" style="background: #374151; color: #fff;" onclick="toggleDemoMode()" id="demo-toggle-btn">
+          🚨 View Vulnerable Demo (7 Findings)
+        </button>
         <button class="btn btn-primary" id="rescan-btn" onclick="triggerScan()">
           🔄 Trigger Re-Scan
         </button>
@@ -402,11 +405,11 @@
 
     <!-- Filters -->
     <div class="filter-bar">
-      <button class="filter-btn active" onclick="filterFindings('ALL')">All Findings (7)</button>
-      <button class="filter-btn" onclick="filterFindings('SECRET_LEAK')">🔑 Secrets (3)</button>
-      <button class="filter-btn" onclick="filterFindings('CODE_FLAW')">🐛 Code Flaws (1)</button>
-      <button class="filter-btn" onclick="filterFindings('OUTDATED_PACKAGE')">📦 Dependencies (3)</button>
-      <button class="filter-btn" onclick="filterFindings('CRITICAL_ONLY')">🚨 Critical Only</button>
+      <button class="filter-btn active" id="btn-all" onclick="filterFindings('ALL')">All Findings (0)</button>
+      <button class="filter-btn" id="btn-secrets" onclick="filterFindings('SECRET_LEAK')">🔑 Secrets (0)</button>
+      <button class="filter-btn" id="btn-code" onclick="filterFindings('CODE_FLAW')">🐛 Code Flaws (0)</button>
+      <button class="filter-btn" id="btn-deps" onclick="filterFindings('OUTDATED_PACKAGE')">📦 Dependencies (0)</button>
+      <button class="filter-btn" id="btn-crit" onclick="filterFindings('CRITICAL_ONLY')">🚨 Critical (0)</button>
     </div>
 
     <!-- Findings Section -->
@@ -421,16 +424,129 @@
 
   <script>
     let reportData = null;
+    let liveReportData = null;
+    let isDemoMode = false;
     let currentFilter = 'ALL';
+
+    const DEMO_VULNERABILITIES = {
+      summary: {
+        score: 0,
+        grade: "F (CRITICAL DANGER)",
+        total_findings: 7,
+        counts: { CRITICAL: 3, HIGH: 2, MEDIUM: 2, LOW: 0 }
+      },
+      findings: [
+        {
+          rule_id: "SEC-001",
+          type: "SECRET_LEAK",
+          severity: "CRITICAL",
+          title: "Exposed AWS Access Key ID",
+          file: "app.py",
+          line: 11,
+          snippet: 'AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"',
+          masked_match: "AKIAIO...MPLE",
+          recommendation: "Revoke the key immediately in AWS IAM and load via environment variables."
+        },
+        {
+          rule_id: "SEC-002",
+          type: "SECRET_LEAK",
+          severity: "CRITICAL",
+          title: "Exposed AWS Secret Access Key",
+          file: "app.py",
+          line: 12,
+          snippet: 'AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"',
+          masked_match: "wJalrX...EKEY",
+          recommendation: "Rotate compromised credentials in AWS IAM console immediately."
+        },
+        {
+          rule_id: "SEC-003",
+          type: "SECRET_LEAK",
+          severity: "CRITICAL",
+          title: "Exposed Stripe Live Secret Key",
+          file: "app.py",
+          line: 13,
+          snippet: 'STRIPE_SECRET_KEY = "sk_live_' + '51Msz928374928374928374928374"',
+          masked_match: "sk_liv...8374",
+          recommendation: "Revoke this key in Stripe Dashboard and store in AWS Secrets Manager / HashiCorp Vault."
+        },
+        {
+          rule_id: "SAST-001",
+          type: "CODE_FLAW",
+          severity: "HIGH",
+          title: "SQL Injection (CWE-89)",
+          file: "app.py",
+          line: 29,
+          snippet: 'query = f"SELECT id, username, email FROM users WHERE id = \'{user_input_id}\'\"',
+          recommendation: "Use parameterized queries ('?') instead of direct string interpolation.",
+          suggested_fix: '# Safe alternative using parameterization:\nquery = "SELECT id, username, email FROM users WHERE id = ?"\ncursor.execute(query, (user_input_id,))'
+        },
+        {
+          rule_id: "SCA-CVE-2018-18074",
+          type: "OUTDATED_PACKAGE",
+          severity: "MEDIUM",
+          title: "Vulnerable Dependency: Flask==0.12.0",
+          file: "requirements.txt",
+          line: 7,
+          package: "flask",
+          installed_version: "0.12.0",
+          fixed_in: "3.0.0",
+          cve: "CVE-2018-18074",
+          recommendation: "Upgrade flask to version >=3.0.0 to resolve known DoS & JSON decoding vulnerabilities."
+        },
+        {
+          rule_id: "SCA-CVE-2018-18074",
+          type: "OUTDATED_PACKAGE",
+          severity: "HIGH",
+          title: "Vulnerable Dependency: requests==2.18.0",
+          file: "requirements.txt",
+          line: 10,
+          package: "requests",
+          installed_version: "2.18.0",
+          fixed_in: "2.31.0",
+          cve: "CVE-2018-18074",
+          recommendation: "Upgrade requests to version >=2.31.0 to prevent authorization header leakage."
+        },
+        {
+          rule_id: "SCA-CVE-2019-11324",
+          type: "OUTDATED_PACKAGE",
+          severity: "MEDIUM",
+          title: "Vulnerable Dependency: urllib3==1.24.1",
+          file: "requirements.txt",
+          line: 13,
+          package: "urllib3",
+          installed_version: "1.24.1",
+          fixed_in: "2.0.7",
+          cve: "CVE-2019-11324",
+          recommendation: "Upgrade urllib3 to version >=2.0.7 to prevent CRLF header injection."
+        }
+      ]
+    };
 
     async function loadReport() {
       try {
         const res = await fetch('/api/report');
-        reportData = await res.json();
+        liveReportData = await res.json();
+        reportData = isDemoMode ? DEMO_VULNERABILITIES : liveReportData;
         renderDashboard(reportData);
       } catch (e) {
         console.error('Error fetching report:', e);
       }
+    }
+
+    function toggleDemoMode() {
+      isDemoMode = !isDemoMode;
+      const toggleBtn = document.getElementById('demo-toggle-btn');
+      if (isDemoMode) {
+        toggleBtn.innerText = '🛡️ View Clean Remediated App (100%)';
+        toggleBtn.style.background = '#059669';
+        reportData = DEMO_VULNERABILITIES;
+      } else {
+        toggleBtn.innerText = '🚨 View Vulnerable Demo (7 Findings)';
+        toggleBtn.style.background = '#374151';
+        reportData = liveReportData || DEMO_VULNERABILITIES;
+      }
+      currentFilter = 'ALL';
+      renderDashboard(reportData);
     }
 
     async function triggerScan() {
@@ -439,7 +555,11 @@
       btn.disabled = true;
       try {
         const res = await fetch('/api/scan', { method: 'POST' });
-        reportData = await res.json();
+        liveReportData = await res.json();
+        isDemoMode = false;
+        document.getElementById('demo-toggle-btn').innerText = '🚨 View Vulnerable Demo (7 Findings)';
+        document.getElementById('demo-toggle-btn').style.background = '#374151';
+        reportData = liveReportData;
         renderDashboard(reportData);
       } catch (e) {
         alert('Failed to run scan');
@@ -468,6 +588,20 @@
       document.getElementById('total-val').innerText = summary.total_findings;
       document.getElementById('crit-val').innerText = summary.counts.CRITICAL || 0;
       document.getElementById('high-med-val').innerText = (summary.counts.HIGH || 0) + (summary.counts.MEDIUM || 0);
+
+      // Update Filter Counters Dynamically
+      const findings = data.findings || [];
+      const total = findings.length;
+      const secrets = findings.filter(f => f.type === 'SECRET_LEAK').length;
+      const codeFlaws = findings.filter(f => f.type === 'CODE_FLAW').length;
+      const packages = findings.filter(f => f.type === 'OUTDATED_PACKAGE').length;
+      const criticals = findings.filter(f => f.severity === 'CRITICAL').length;
+
+      document.getElementById('btn-all').innerText = `All Findings (${total})`;
+      document.getElementById('btn-secrets').innerText = `🔑 Secrets (${secrets})`;
+      document.getElementById('btn-code').innerText = `🐛 Code Flaws (${codeFlaws})`;
+      document.getElementById('btn-deps').innerText = `📦 Dependencies (${packages})`;
+      document.getElementById('btn-crit').innerText = `🚨 Critical (${criticals})`;
 
       renderFindings();
     }
