@@ -319,12 +319,14 @@ def run_full_scan(target_dir: str) -> Dict[str, Any]:
     all_findings = []
     target_abs = os.path.abspath(target_dir)
 
-    for root, _, files in os.walk(target_abs):
+    IGNORE_DIRS = {".git", "__pycache__", "node_modules", "venv", ".venv", "env", "dist", "build", ".next"}
+
+    for root, dirs, files in os.walk(target_abs):
+        # Prune ignored directories in-place for fast scanning
+        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+
         for file in files:
             full_path = os.path.join(root, file)
-            if ".git" in full_path or "__pycache__" in full_path:
-                continue
-
             all_findings.extend(scan_secrets(full_path, repo_root=target_abs))
 
             if file.endswith(".py"):
