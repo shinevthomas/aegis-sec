@@ -46,7 +46,7 @@ def save_json_file(path: str, payload) -> None:
 
 def get_current_report() -> dict:
     report = load_json_file(REPORT_PATH, None)
-    if report is None:
+    if report is None or not os.path.isdir(str(report.get("target_directory", ""))):
         report = run_full_scan(TARGET_DIR)
         report["scanned_at"] = datetime.now(timezone.utc).isoformat()
         save_json_file(REPORT_PATH, report)
@@ -179,8 +179,11 @@ class AegisDashboardHandler(http.server.SimpleHTTPRequestHandler):
         requested_target = str(body_data.get("target") or TARGET_DIR).strip()
         target_abs = os.path.abspath(os.path.expanduser(requested_target))
         if not os.path.isdir(target_abs):
-            self._send_json(400, {"error": f"Target directory does not exist: {target_abs}"})
-            return
+            if target_abs.endswith(os.sep + "target_app") or requested_target == "target_app":
+                target_abs = TARGET_DIR
+            else:
+                self._send_json(400, {"error": f"Target directory does not exist: {target_abs}"})
+                return
 
         try:
             threshold = int(body_data.get("threshold", 80))
