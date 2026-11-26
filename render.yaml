@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: aegis-sec
+    runtime: python
+    plan: free
+    buildCommand: "python3 -m unittest discover tests -v"
+    startCommand: "python3 dashboard/server.py"
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
