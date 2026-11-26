@@ -316,27 +316,32 @@ def to_sarif(report: Dict[str, Any]) -> Dict[str, Any]:
 
 def run_full_scan(target_dir: str) -> Dict[str, Any]:
     """Execute complete ASPM scan across secrets, code AST, and dependencies."""
+    import time
+    start_ts = time.perf_counter()
     all_findings = []
+    files_scanned = 0
     target_abs = os.path.abspath(target_dir)
-
-    IGNORE_DIRS = {".git", "__pycache__", "node_modules", "venv", ".venv", "env", "dist", "build", ".next"}
+    skip_dirs = {".git", "__pycache__", ".venv", "venv", "node_modules", ".next", "dist", "build", "output", "site-packages"}
 
     for root, dirs, files in os.walk(target_abs):
-        # Prune ignored directories in-place for fast scanning
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
-
+        dirs[:] = [
+            d for d in dirs
+            if d not in skip_dirs and not d.startswith(("venv.", ".venv."))
+        ]
         for file in files:
             full_path = os.path.join(root, file)
+            files_scanned += 1
+
             all_findings.extend(scan_secrets(full_path, repo_root=target_abs))
 
             if file.endswith(".py"):
                 all_findings.extend(scan_code_vulnerabilities(full_path, repo_root=target_abs))
-
-    req_file = os.path.join(target_abs, "requirements.txt")
-    if os.path.exists(req_file):
-        all_findings.extend(scan_packages(req_file, repo_root=target_abs))
+            elif file == "requirements.txt":
+                all_findings.extend(scan_packages(full_path, repo_root=target_abs))
 
     summary = calculate_security_score(all_findings)
+    summary["files_scanned"] = files_scanned
+    summary["scan_duration_ms"] = round((time.perf_counter() - start_ts) * 1000, 2)
     return {
         "target_directory": target_abs,
         "summary": summary,
